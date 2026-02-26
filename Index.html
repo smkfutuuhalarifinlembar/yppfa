@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem Presensi Digital</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- HTML5-QRCode Library (Untuk Scan) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- QRCode.js (Untuk Generate QR di ID Card) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(255, 255, 255, 0.5);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #eef2f5;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .swal2-container { z-index: 9999 !important; }
+
+        /* --- KARTU UTAMA RESPONSIF --- */
+        .main-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 480px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s;
+            margin: auto;
+        }
+
+        /* Responsive Elements */
+        .logo-img {
+            width: 80px; height: 80px;
+            object-fit: contain; margin-bottom: 0.5rem;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.1));
+            transition: 0.3s;
+        }
+
+        .school-name { font-weight: 700; color: #1a1a1a; margin-bottom: 0; font-size: 1.25rem; }
+        .school-address { font-size: 0.8rem; color: #666; margin-bottom: 1rem; }
+
+        .clock-box {
+            background: #fff; border-radius: 15px; padding: 10px;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
+            margin-bottom: 1rem; border: 1px solid rgba(0,0,0,0.04);
+        }
+
+        .time-display {
+            font-size: 2.8rem; font-weight: 700; color: var(--primary-color);
+            line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -1px;
+            transition: 0.3s;
+        }
+
+        .date-display { font-size: 0.95rem; color: #888; margin-top: 5px; font-weight: 500; }
+
+        .status-badge {
+            display: inline-block; padding: 10px 20px; border-radius: 12px;
+            font-weight: 600; font-size: 0.9rem; color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); width: 100%; margin-bottom: 10px;
+            white-space: normal; line-height: 1.4;
+        }
+
+        .status-aktif { background: linear-gradient(135deg, #4361ee, #3f37c9); }
+        .status-tutup { background: linear-gradient(135deg, #eb3349, #f45c43); }
+
+        /* Mode Switcher */
+        .mode-switch {
+            background: #fff; border-radius: 50px; padding: 5px;
+            display: flex; justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px;
+            border: 1px solid #eee;
+        }
+        .mode-btn {
+            border: none; background: transparent; padding: 8px 10px;
+            border-radius: 50px; font-size: 0.9rem; font-weight: 600;
+            color: #666; width: 48%; transition: 0.3s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .mode-btn.active {
+            background: var(--primary-color); color: white;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+
+        /* Scan Areas */
+        .scan-area-card {
+            cursor: pointer; padding: 30px; border-radius: 16px;
+            border: 2px dashed #ccc; transition: all 0.3s;
+            background: rgba(255,255,255,0.5);
+        }
+        .scan-area-card:hover { border-color: var(--primary-color); background: rgba(67, 97, 238, 0.05); }
+        .scan-instruction { color: #555; font-weight: 600; margin-top: 10px; animation: pulse 2s infinite; }
+        
+        #reader { 
+            width: 100%; border-radius: 15px; overflow: hidden; 
+            border: 1px solid #ddd; min-height: 250px; 
+            background-color: #000;
+        }
+        #idKartu { opacity: 0; position: absolute; z-index: -1; }
+
+        /* Admin Button - Floating Top Right */
+        .btn-admin {
+            position: absolute; top: 15px; right: 15px; width: 40px; height: 40px;
+            border-radius: 50%; background: #fff; border: 1px solid #eee;
+            color: #555; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn-admin:hover { transform: rotate(90deg); color: var(--primary-color); }
+
+        /* --- PANEL ADMIN RESPONSIF --- */
+        #halPetugas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #f8f9fa;
+            z-index: 2000; 
+            display: none; 
+            overflow-y: auto;
+            padding: 20px 10px;
+        }
+
+        .admin-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+            min-height: 90vh;
+        }
+
+        /* --- STYLING ID CARD (DESIGN STANDAR ISO 7810 ID-1) --- */
+        .id-card-wrapper {
+            width: 85.6mm;  /* Lebar Standar e-KTP */
+            height: 53.98mm; /* Tinggi Standar e-KTP */
+            border: 1px solid #ddd;
+            border-radius: 3.18mm; /* Radius Sudut */
+            position: relative;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin: 0 auto; /* Center di preview */
+            page-break-inside: avoid;
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Overlay halus agar text terbaca */
+        .id-card-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(255, 255, 255, 0.85); 
+            z-index: 1;
+        }
+
+        .id-card-content {
+            position: relative; z-index: 2;
+            height: 100%; display: flex;
+            flex-direction: column; padding: 10px;
+        }
+
+        .idc-header {
+            display: flex; align-items: center; border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 5px; margin-bottom: 5px;
+        }
+        .idc-logo { width: 35px; height: 35px; object-fit: contain; margin-right: 8px; }
+        .idc-school { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #000; line-height: 1.1; }
+        .idc-address { font-size: 6px; color: #444; font-weight: normal; }
+
+        .idc-body { display: flex; flex: 1; align-items: center; }
+        
+        .idc-photo-box {
+            width: 75px; height: 100px;
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-right: 10px;
+            background: #eee;
+        }
+        .idc-photo { width: 100%; height: 100%; object-fit: cover; }
+
+        .idc-details { flex: 1; }
+        .idc-name { font-size: 12px; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .idc-role { 
+            display: inline-block; background: var(--primary-color); color: #fff; 
+            font-size: 8px; padding: 1px 6px; border-radius: 4px; margin-bottom: 5px; 
+        }
+        .idc-id { font-size: 10px; color: #333; font-family: monospace; }
+        .idc-ket { font-size: 9px; color: #555; }
+
+        .idc-qr { 
+            position: absolute; bottom: 8px; right: 8px; 
+            padding: 3px; background: #fff; border: 1px solid #eee; 
+        }
+        .idc-qr img { 
+            width: 70px; height: 70px; display: block; 
+        }
+
+
+        /* --- MEDIA QUERIES --- */
+        @media (max-width: 576px) {
+            .main-card { padding: 1.5rem; border-radius: 20px; }
+            .logo-img { width: 60px; height: 60px; }
+            .school-name { font-size: 1.1rem; }
+            .time-display { font-size: 2.2rem; }
+            .mode-btn { font-size: 0.8rem; padding: 6px 10px; }
+            .scan-area-card { padding: 20px; }
+            
+            #halPetugas { padding: 0; background: white; }
+            .admin-container { 
+                box-shadow: none; border-radius: 0; 
+                padding: 15px; min-height: 100vh; 
+            }
+            .btn-admin { top: 10px; right: 10px; }
+        }
+
+        .table-rekap-container {
+            max-height: 400px; overflow-x: auto;
+            border: 1px solid #eee; border-radius: 8px; margin-top: 15px;
+        }
+        .table-rekap { font-size: 0.8rem; white-space: nowrap; }
+        
+        /* FIX: Header Tabel agar terlihat di PC/Laptop */
+        .table-rekap th { 
+            background-color: #343a40 !important; /* Warna Gelap */
+            color: #ffffff !important; /* Text Putih */
+            position: sticky; top: 0; z-index: 10; 
+            border: 1px solid #454d55;
+        }
+
+        /* --- STYLES KHUSUS PRINT --- */
+        @media print {
+            /* Reset Settings Halaman */
+            @page {
+                size: auto;
+                margin: 5mm; /* Margin kertas minimal */
+            }
+
+            /* Reset Global Styles */
+            body, html {
+                background: white !important;
+                background-image: none !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
+            /* Sembunyikan semua elemen secara default */
+            body * {
+                visibility: hidden;
+            }
+
+            /* Reset Parent Containers agar tidak nge-lock halaman */
+            #halPetugas, .admin-container, .tab-content, .tab-pane {
+                position: static !important;
+                overflow: visible !important;
+                height: auto !important;
+                width: auto !important;
+                display: block !important;
+                background: white !important;
+                border: none !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* --- PRINT MODE: ID CARD --- */
+            /* Hanya tampil jika body punya class .printing-idcard */
+            body.printing-idcard #printAreaIDCard,
+            body.printing-idcard #printAreaIDCard * {
+                visibility: visible;
+            }
+
+            body.printing-idcard #printAreaIDCard {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap; /* Kunci: Wrap agar turun ke bawah */
+                justify-content: flex-start;
+                align-content: flex-start;
+                gap: 2mm; 
+                padding: 0;
+            }
+
+            .id-card-wrapper {
+                margin: 0;
+                border: 1px solid #000;
+                break-inside: avoid;
+                page-break-inside: avoid; /* Mencegah kartu terpotong */
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* --- PRINT MODE: REKAP --- */
+            /* Hanya tampil jika body punya class .printing-rekap */
+            body.printing-rekap #printableArea,
+            body.printing-rekap #printableArea * {
+                visibility: visible;
+            }
+
+            body.printing-rekap #printableArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                padding: 20px;
+                background: white;
+            }
+            
+            /* FIX SCROLL SAAT PRINT: Tampilkan semua data rekap */
+            body.printing-rekap .table-rekap-container {
+                max-height: none !important;
+                overflow: visible !important;
+                border: none !important;
+                display: block !important;
+            }
+
+            body.printing-rekap .table-rekap {
+                width: 100%;
+                font-size: 8px; /* Perkecil font agar muat */
+            }
+
+            body.printing-rekap .table-rekap th,
+            body.printing-rekap .table-rekap td {
+                border: 1px solid #000;
+                padding: 2px;
+                white-space: nowrap;
+            }
+            
+            /* Override warna header saat print (agar hemat tinta atau tetap jelas) */
+            body.printing-rekap .table-rekap th {
+                background-color: #ddd !important;
+                color: #000 !important;
+                border: 1px solid #000;
+            }
+
+            /* Sembunyikan Elemen UI */
+            .no-print, .btn-admin, .mode-switch, .clock-box, 
+            #absenStatus, #containerKartu, #containerQR, 
+            #adminTabs, .btn, input, select, .form-check, .list-group {
+                display: none !important;
+            }
+        }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        .swal2-popup .swal2-image { 
+            border-radius: 8px; 
+            border: 4px solid #fff; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            object-fit: cover; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container d-flex justify-content-center">
+        <div class="main-card text-center" id="mainCard" style="display:none">
+            <button class="btn-admin" onclick="halPetugas()" title="Admin"><i class="fas fa-cog"></i></button>
+
+            <div id="logo"><div class="spinner-border text-primary" role="status"></div></div>
+            <h5 class="school-name" id="namaLembaga">Memuat Data...</h5>
+            <p class="school-address" id="alamatLembaga">Mohon tunggu...</p>
+
+            <div class="clock-box">
+                <div class="time-display" id="jamdigital">00:00:00</div>
+                <div class="date-display" id="date">-</div>
+            </div>
+
+            <!-- STATUS -->
+            <div id="absenStatus" class="status-badge status-tutup">MEMUAT...</div>
+            <div class="small text-muted mb-3" id="jadwalInfo"></div>
+
+            <!-- MODE SWITCHER -->
+            <div class="mode-switch">
+                <button class="mode-btn active" id="btnModeKartu" onclick="gantiMode('KARTU')">
+                    <i class="fas fa-id-card me-1"></i> Kartu
+                </button>
+                <button class="mode-btn" id="btnModeQR" onclick="gantiMode('QR')">
+                    <i class="fas fa-qrcode me-1"></i> QR Code
+                </button>
+            </div>
+
+            <!-- SCANNER KARTU -->
+            <div id="containerKartu">
+                <div class="scan-area-card" onclick="fokusInputTap()">
+                    <i class="fas fa-wifi fa-rotate-90 fa-2x text-muted"></i>
+                    <div class="scan-instruction">TEMPELKAN KARTU</div>
+                    <small class="text-muted" style="font-size:0.7rem">Pastikan input aktif</small>
+                </div>
+                <form id="formTapKartu">
+                    <input type="text" id="idKartu" autocomplete="off" autofocus>
+                    <button type="submit" style="display:none"></button>
+                </form>
+            </div>
+
+            <!-- SCANNER QR -->
+            <div id="containerQR" style="display:none;">
+                <div id="reader"></div>
+                <div class="mt-2 small text-muted">Izinkan akses kamera untuk scan</div>
+            </div>
+            
+            <!-- INFORMASI SISTEM -->
+            <div class="mt-4 pt-3 border-top text-muted small" style="font-size: 0.7rem;">
+                <p class="m-0">Sistem Presensi Digital v1.1</p>
+                <p class="m-0">&copy; <span id="footerYear"></span> <span id="footerSchool"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANEL PETUGAS / ADMIN -->
+    <div id="halPetugas">
+        <div class="admin-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold m-0"><i class="fas fa-user-shield me-2"></i>Admin</h4>
+                <button class="btn btn-outline-dark rounded-pill btn-sm" onclick="aktifkanTapKartu()">
+                    <i class="fas fa-times"></i> Tutup
+                </button>
+            </div>
+
+            <!-- NAVIGASI TAB ADMIN -->
+            <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="sync-tab" data-bs-toggle="tab" data-bs-target="#sync-pane" type="button">Sinkronisasi</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-pane" type="button">Input Manual</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="rekap-tab" data-bs-toggle="tab" data-bs-target="#rekap-pane" type="button">Rekap Bulanan</button>
+                </li>
+                <!-- TAB BARU: CETAK ID CARD -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="idcard-tab" data-bs-toggle="tab" data-bs-target="#idcard-pane" type="button"><i class="fas fa-print me-1"></i> ID Card</button>
+                </li>
+                <!-- TAB BARU: JADWAL -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="jadwal-tab" data-bs-toggle="tab" data-bs-target="#jadwal-pane" type="button"><i class="fas fa-calendar-alt me-1"></i> Jadwal</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="adminTabContent">
+                <!-- TAB SINKRONISASI -->
+                <div class="tab-pane fade show active" id="sync-pane" role="tabpanel">
+                    <div class="alert alert-secondary text-center p-3">
+                        <h5 class="m-0 fw-bold" id="banyak">0 Data</h5>
+                        <small>Belum disinkron ke Google Sheet</small>
+                    </div>
+                    <div class="list-group list-group-flush mb-4 border rounded" id="dataPresensi" style="max-height: 40vh; overflow-y: auto;"></div>
+                    <div class="row g-2">
+                        <div class="col-6"><button class="btn btn-danger w-100 py-3 rounded-3" onclick="bersihkanPresensi()"><i class="fas fa-trash me-1"></i> Hapus</button></div>
+                        <div class="col-6"><button class="btn btn-success w-100 py-3 rounded-3" onclick="sinkron()"><i class="fas fa-cloud-upload-alt me-1"></i> Kirim</button></div>
+                    </div>
+                </div>
+
+                <!-- TAB INPUT MANUAL -->
+                <div class="tab-pane fade" id="manual-pane" role="tabpanel">
+                    <div class="card border-0 shadow-sm p-4 bg-light rounded">
+                        <label class="form-label fw-bold"><i class="fas fa-keyboard me-2"></i>Presensi Tanpa Kartu</label>
+                        <p class="small text-muted mb-3">Ketik Nama atau ID siswa/guru yang tidak membawa kartu.</p>
+                        
+                        <div class="input-group mb-3">
+                            <input type="text" id="manualInputId" class="form-control form-control-lg" placeholder="Cari Nama / ID..." list="datalistPersonal">
+                        </div>
+                        
+                        <!-- TOMBOL INPUT MANUAL BARU -->
+                        <div class="d-flex gap-2 mb-3">
+                            <button class="btn btn-primary flex-grow-1" onclick="submitManual('HADIR')">
+                                <i class="fas fa-check-circle me-1"></i> Hadir
+                            </button>
+                            <button class="btn btn-warning flex-grow-1" onclick="submitManual('IZIN')">
+                                <i class="fas fa-envelope-open-text me-1"></i> Izin
+                            </button>
+                            <button class="btn btn-danger flex-grow-1" onclick="submitManual('SAKIT')">
+                                <i class="fas fa-procedures me-1"></i> Sakit
+                            </button>
+                        </div>
+
+                        <datalist id="datalistPersonal">
+                            <!-- Data akan diisi otomatis oleh JS -->
+                        </datalist>
+                        
+                        <div class="alert alert-info small">
+                            <i class="fas fa-info-circle me-1"></i> Izin & Sakit akan langsung tercatat tanpa validasi jam.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB REKAP BULANAN -->
+                <div class="tab-pane fade" id="rekap-pane" role="tabpanel">
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body bg-light rounded p-3">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-4 col-6">
+                                    <label class="small fw-bold">Bulan</label>
+                                    <select id="filterBulan" class="form-select form-select-sm">
+                                        <option value="JAN">JANUARI</option><option value="FEB">FEBRUARI</option>
+                                        <option value="MAR">MARET</option><option value="APR">APRIL</option>
+                                        <option value="MEI">MEI</option><option value="JUN">JUNI</option>
+                                        <option value="JUL">JULI</option><option value="AGU">AGUSTUS</option>
+                                        <option value="SEP">SEPTEMBER</option><option value="OKT">OKTOBER</option>
+                                        <option value="NOV">NOVEMBER</option><option value="DES">DESEMBER</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 col-6">
+                                    <label class="small fw-bold">Role</label>
+                                    <select id="filterRole" class="form-select form-select-sm">
+                                        <option value="SEMUA">Semua</option>
+                                        <option value="GURU">Guru</option>
+                                        <option value="SISWA">Siswa</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 col-12">
+                                    <label class="small text-light d-none d-md-block">.</label>
+                                    <button class="btn btn-primary btn-sm w-100" onclick="loadRekapData()">
+                                        <i class="fas fa-search me-1"></i> Tampilkan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AREA TOMBOL EXPORT -->
+                    <div id="exportButtons" class="d-none mb-3 text-end">
+                        <button class="btn btn-success btn-sm me-1" onclick="exportToCSV()"><i class="fas fa-file-csv"></i> CSV</button>
+                        <button class="btn btn-danger btn-sm me-1" onclick="exportToPDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+                        <button class="btn btn-secondary btn-sm" onclick="printRekap()"><i class="fas fa-print"></i> Cetak</button>
+                    </div>
+
+                    <!-- CONTAINER PRINTABLE REKAP (KOP SURAT BARU) -->
+                    <div id="printableArea">
+                        <div id="printHeader" class="d-none mb-4">
+                            <!-- KOP SURAT DINAMIS -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px;">
+                                <!-- Logo Kiri -->
+                                <div style="width: 100px; text-align: left;">
+                                    <img id="printLogoKiri" src="" style="width: 80px; height: 80px; object-fit: contain;">
+                                </div>
+                                
+                                <!-- Teks Tengah (Header 1-5) -->
+                                <div style="flex: 1; text-align: center;">
+                                    <h3 id="printHeader1" style="margin: 0; font-weight: bold; font-size: 1.2rem; text-transform: uppercase;"></h3>
+                                    <h4 id="printHeader2" style="margin: 0; font-weight: bold; font-size: 1.2rem;"></h4>
+                                    <h5 id="printHeader3" style="margin: 0; font-weight: bold; font-size: 1.4rem;"></h5>
+                                    <p id="printHeader4" style="margin: 0; font-size: 0.9rem;"></p>
+                                    <p id="printHeader5" style="margin: 0; font-size: 0.9rem; font-style: italic;"></p>
+                                </div>
+
+                                <!-- Logo Kanan -->
+                                <div style="width: 100px; text-align: right;">
+                                    <img id="printLogoKanan" src="" style="width: 80px; height: 80px; object-fit: contain; display: none;">
+                                </div>
+                            </div>
+                            
+                            <h5 class="fw-bold text-center" style="color: black;">REKAPITULASI PRESENSI BULAN <span id="printBulan"></span></h5>
+                        </div>
+                        
+                        <div class="table-rekap-container">
+                            <table class="table table-bordered table-striped table-rekap" id="tabelRekapData">
+                                <!-- HEADER DIBUAT DENGAN CSS KHUSUS, TANPA CLASS TABLE-DARK -->
+                                <thead>
+                                    <!-- Header diisi JS -->
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="5" class="text-center py-4">Silakan pilih filter dan klik Tampilkan</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB CETAK ID CARD -->
+                <div class="tab-pane fade" id="idcard-pane" role="tabpanel">
+                    <div class="row">
+                        <div class="col-md-4 border-end">
+                            <h5 class="fw-bold mb-3">Pilih Data</h5>
+                            
+                            <!-- PILIHAN BACKGROUND (BARU) -->
+                            <div class="mb-3">
+                                <label class="small fw-bold">Pilih Desain Background:</label>
+                                <select id="bgSelector" class="form-select form-select-sm" onchange="generateIdCards(false)">
+                                    <option value="default">Default (Spreadsheet)</option>
+                                    <option value="white">Putih Bersih</option>
+                                    <option value="blue">Biru Kristal</option>
+                                    <option value="peach">Senja Peach</option>
+                                    <option value="mint">Hijau Mint</option>
+                                    <option value="lavender">Ungu Lavender</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="small">Filter Kelas/Ket:</label>
+                                <select id="filterKelasCard" class="form-select form-select-sm" onchange="renderIdCardList()">
+                                    <option value="SEMUA">Semua</option>
+                                    <!-- Diisi JS -->
+                                </select>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="checkAllCard" onchange="toggleAllCards(this)">
+                                <label class="form-check-label fw-bold small" for="checkAllCard">Pilih Semua</label>
+                            </div>
+                            <div class="list-group list-group-flush border" id="listIdCard" style="height: 300px; overflow-y: auto;">
+                                <!-- List User -->
+                            </div>
+                            <div class="d-grid mt-3">
+                                <button class="btn btn-primary" onclick="generateIdCards(true)">
+                                    <i class="fas fa-print me-1"></i> Buat & Cetak
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-8 bg-light d-flex align-items-center justify-content-center p-4">
+                            <!-- Preview Area -->
+                            <div id="printAreaIDCardContainer" style="width: 100%;">
+                                <div class="text-center text-muted mb-3 d-print-none">
+                                    <small>Preview ID Card (Klik "Buat & Cetak" untuk hasil terbaik)</small>
+                                </div>
+                                <!-- Tempat Card di-generate -->
+                                <div id="printAreaIDCard"></div> 
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB JADWAL (BARU) -->
+                <div class="tab-pane fade" id="jadwal-pane" role="tabpanel">
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle me-1"></i> Atur waktu presensi untuk setiap hari. Gunakan format jam <strong>JJ:MM-JJ:MM</strong> atau ketik <strong>LIBUR</strong>.
+                    </div>
+                    <div class="table-responsive bg-white rounded shadow-sm">
+                        <table class="table table-bordered table-sm mb-0" style="font-size:0.85rem">
+                            <thead class="table-light">
+                                <tr class="text-center">
+                                    <th style="width: 15%">Hari / Tipe</th>
+                                    <th>Jam Masuk</th>
+                                    <th>Jam Telat</th>
+                                    <th>Jam Pulang</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTableBody">
+                                <!-- Diisi oleh JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="d-grid mt-3">
+                        <button class="btn btn-primary" onclick="saveSchedule()">
+                            <i class="fas fa-save me-1"></i> Simpan Perubahan Jadwal
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        var urlGAS = 'https://script.google.com/macros/s/AKfycbx4E476EkXmB_nX5gymeYitByvGI_TIB31c3taA5GzWq452-IovHp7htMCDpd8J2jCAcQ/exec'; 
+        
+        let dataPersonal = [];
+        let html5QrcodeScanner = null;
+        let currentMode = 'KARTU';
+        let rekapDataCache = [];
+        let globalBackground = ""; 
+        let globalSettings = []; 
+
+        $(document).ready(function() {
+            firstLoad();
+            checkDailyReset(); 
+            const monthNames = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+            document.getElementById("filterBulan").value = monthNames[new Date().getMonth()];
+            document.getElementById("footerYear").innerText = new Date().getFullYear();
+            
+            // Render jadwal saat tab diklik
+            $('#jadwal-tab').on('shown.bs.tab', function() {
+                renderScheduleTable();
+            });
+        });
+
+        // --- FUNGSI EDITOR JADWAL ---
+        function renderScheduleTable() {
+            let raw = localStorage.getItem('presensi_schedule');
+            let data = raw ? JSON.parse(raw) : [];
+            let tbody = $('#scheduleTableBody');
+            tbody.empty();
+            
+            const dayOrder = ["SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU", "MINGGU"];
+            
+            data.sort((a, b) => {
+                let da = dayOrder.indexOf(a.hari);
+                let db = dayOrder.indexOf(b.hari);
+                if (da === db) return a.tipe.localeCompare(b.tipe);
+                return da - db;
+            });
+
+            data.forEach((row) => {
+                let badgeClass = row.tipe === 'GURU' ? 'bg-primary' : 'bg-success';
+                let tr = `
+                    <tr>
+                        <td class="align-middle text-center bg-light">
+                            <strong>${row.hari}</strong><br>
+                            <span class="badge ${badgeClass}" style="font-size:0.6rem">${row.tipe}</span>
+                            <input type="hidden" class="sch-hari" value="${row.hari}">
+                            <input type="hidden" class="sch-tipe" value="${row.tipe}">
+                        </td>
+                        <td class="p-1 align-middle"><input type="text" class="form-control form-control-sm sch-masuk text-center" value="${row.masuk}"></td>
+                        <td class="p-1 align-middle"><input type="text" class="form-control form-control-sm sch-telat text-center" value="${row.telat}"></td>
+                        <td class="p-1 align-middle"><input type="text" class="form-control form-control-sm sch-pulang text-center" value="${row.pulang}"></td>
+                    </tr>
+                `;
+                tbody.append(tr);
+            });
+        }
+
+        function saveSchedule() {
+            let newData = [];
+            $('#scheduleTableBody tr').each(function() {
+                let hari = $(this).find('.sch-hari').val();
+                let tipe = $(this).find('.sch-tipe').val();
+                let masuk = $(this).find('.sch-masuk').val();
+                let telat = $(this).find('.sch-telat').val();
+                let pulang = $(this).find('.sch-pulang').val();
+                
+                if(hari && tipe) {
+                    newData.push({hari, tipe, masuk, telat, pulang});
+                }
+            });
+            
+            Swal.fire({ title: 'Menyimpan Jadwal...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            
+            $.post(urlGAS, { mode: 'updateSchedule', data: JSON.stringify(newData) }).done((res) => {
+                Swal.close();
+                let response = typeof res === 'string' ? JSON.parse(res) : res;
+                
+                if(response.status === 'success') {
+                    localStorage.setItem('presensi_schedule', JSON.stringify(newData));
+                    let now = new Date();
+                    cekJadwalUmum(now.getHours().toString().padStart(2, "0"), now.getMinutes().toString().padStart(2, "0"));
+                    Swal.fire('Berhasil', response.message, 'success');
+                } else {
+                    Swal.fire('Gagal', response.error || 'Gagal menyimpan.', 'error');
+                }
+            }).fail(() => {
+                Swal.close();
+                Swal.fire('Error', 'Koneksi gagal.', 'error');
+            });
+        }
+
+        // --- CEK RESET HARIAN ---
+        function checkDailyReset() {
+            const today = new Date().toDateString();
+            const lastRun = localStorage.getItem('last_run_date');
+            
+            if (lastRun !== today) {
+                localStorage.setItem('last_run_date', today);
+                localStorage.setItem('presensi_history', JSON.stringify([])); 
+                console.log("History presensi harian di-reset.");
+            }
+        }
+
+        // --- MODE SWITCHING ---
+        function gantiMode(mode) {
+            currentMode = mode;
+            if (mode === 'KARTU') {
+                $('#btnModeKartu').addClass('active'); $('#btnModeQR').removeClass('active');
+                $('#containerKartu').show(); $('#containerQR').hide();
+                stopQRScanner(); fokusInputTap();
+            } else {
+                $('#btnModeKartu').removeClass('active'); $('#btnModeQR').addClass('active');
+                $('#containerKartu').hide(); $('#containerQR').show();
+                startQRScanner();
+            }
+        }
+
+        // --- QR CODE ---
+        function startQRScanner() {
+            if (typeof Html5QrcodeScanner === 'undefined') { Swal.fire('Error', 'Library QR gagal.', 'error'); return; }
+            if (html5QrcodeScanner) return; 
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }
+        function stopQRScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().then(() => { html5QrcodeScanner = null; }).catch(err => console.error(err));
+            }
+        }
+        function onScanSuccess(decodedText) {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.pause();
+                prosesPresensi(decodedText);
+                setTimeout(() => { if (html5QrcodeScanner) html5QrcodeScanner.resume(); }, 3000);
+            }
+        }
+        function onScanFailure(error) { }
+
+        // --- KARTU RFID ---
+        const input = document.getElementById("idKartu");
+        function fokusInputTap() { if(input && currentMode === 'KARTU') input.focus(); }
+        document.addEventListener("click", function(e) {
+            if (!document.getElementById("halPetugas").contains(e.target) && !e.target.closest("button") && 
+                currentMode === 'KARTU' && sessionStorage.getItem('tampilTap') === 'Y') { fokusInputTap(); }
+        });
+        $("#formTapKartu").submit(function(e) {
+            e.preventDefault();
+            let id = $('#idKartu').val();
+            prosesPresensi(id);
+            $('#idKartu').val("");
+        });
+
+        // --- INPUT MANUAL ---
+        function submitManual(statusType) {
+            let inputVal = document.getElementById('manualInputId').value;
+            if (!inputVal) return;
+            prosesPresensi(inputVal, statusType);
+            document.getElementById('manualInputId').value = ""; 
+        }
+
+        // --- LOGIKA UTAMA PRESENSI (OFFLINE FIRST / SYNC) ---
+        function prosesPresensi(id, manualStatus = null) {
+            id = id.toString().replace(/[\s.,]/g, ''); 
+            let found = dataPersonal.find(i => i.id === id);
+
+            if (found) {
+                let role = found.role ? found.role.toUpperCase().trim() : "SISWA";
+                
+                const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
+                const todayName = days[new Date().getDay()]; 
+                
+                let rawSchedule = localStorage.getItem('presensi_schedule');
+                let schedule = rawSchedule ? JSON.parse(rawSchedule) : [];
+                let rule = schedule.find(s => s.hari === todayName && s.tipe === role);
+                
+                let jmMasukStr = rule ? rule.masuk : "LIBUR";
+                let jmTelatStr = rule ? rule.telat : "LIBUR";
+                let jmPulangStr = rule ? rule.pulang : "LIBUR";
+
+                let waktuUI = document.getElementById("jamdigital").innerText;
+                let [jam, menit] = waktuUI.split(':');
+                let totalMenit = parseInt(jam) * 60 + parseInt(menit);
+
+                let stt = "";
+                let jamSimpan = (manualStatus && manualStatus !== 'HADIR') ? manualStatus : `${jam}:${menit}`;
+
+                if (jmMasukStr === "LIBUR" && !manualStatus) {
+                     Swal.fire({ icon: 'info', title: 'Hari Libur', text: `Tidak ada jadwal presensi untuk ${role} hari ini (${todayName}).`, timer: 2000, showConfirmButton: false });
+                     return;
+                }
+
+                if (manualStatus && manualStatus !== 'HADIR') {
+                    stt = "MASUK"; 
+                } else {
+                    let jmMasuk = (jmMasukStr && jmMasukStr.includes('-')) ? jmMasukStr.split('-') : ["00:00", "00:00"];
+                    let jmTelat = (jmTelatStr && jmTelatStr.includes('-')) ? jmTelatStr.split('-') : ["00:00", "00:00"];
+                    let jmPulang = (jmPulangStr && jmPulangStr.includes('-')) ? jmPulangStr.split('-') : ["00:00", "00:00"];
+
+                    if (totalMenit >= keMenit(jmMasuk[0]) && totalMenit <= keMenit(jmMasuk[1])) {
+                        stt = "MASUK";
+                    } else if (totalMenit >= keMenit(jmTelat[0]) && totalMenit <= keMenit(jmTelat[1])) {
+                        stt = "TELAT";
+                        jamSimpan = `${jam}:${menit}`; 
+                    } else if (totalMenit >= keMenit(jmPulang[0]) && totalMenit <= keMenit(jmPulang[1])) {
+                        stt = "PULANG";
+                    }
+                }
+
+                if (stt !== "") {
+                    // Cek Ganda Lokal (Cache)
+                    let history = JSON.parse(localStorage.getItem('presensi_history')) || [];
+                    let dateKey = `${sessionStorage.getItem('tanggalok')}-${sessionStorage.getItem('bulanok')}`;
+                    let baseKey = `${found.id}-${dateKey}`;
+                    
+                    let hasMasuk = history.includes(`${baseKey}-MASUK`) || history.includes(`${baseKey}-TELAT`);
+                    let hasPulang = history.includes(`${baseKey}-PULANG`);
+
+                    if (!manualStatus) {
+                        if ((stt === "MASUK" || stt === "TELAT") && hasMasuk) {
+                             Swal.fire({ icon: 'warning', title: 'Sudah Presensi Masuk', timer: 2500, showConfirmButton: false }); return;
+                        }
+                        if (stt === "PULANG" && hasPulang) {
+                             Swal.fire({ icon: 'warning', title: 'Sudah Presensi Pulang', timer: 2500, showConfirmButton: false }); return;
+                        }
+                    }
+
+                    // --- SIMPAN KE LOCALSTORAGE (OFFLINE FIRST) ---
+                    let tgl = sessionStorage.getItem('tanggalok');
+                    let bln = sessionStorage.getItem('bulanok');
+                    
+                    // Key untuk storage queue (harus unik agar tidak tertimpa)
+                    let storageKey = `${found.baris}-${tgl}-${bln}-${stt}`;
+                    let val = `${found.baris};${tgl};${bln};${stt};${jamSimpan}`;
+                    
+                    localStorage.setItem(storageKey, val);
+                    
+                    // Update History Unik
+                    let uniqueKey = `${baseKey}-${stt}`;
+                    if (!history.includes(uniqueKey)) {
+                        history.push(uniqueKey);
+                        localStorage.setItem('presensi_history', JSON.stringify(history));
+                    }
+
+                    // Refresh daftar antrean di admin panel
+                    loadPresensi(); 
+
+                    // Tampilkan Sukses
+                    let popupTitle = stt === "TELAT" ? "TERLAMBAT" : stt;
+                    let popupClass = stt === "TELAT" ? "text-danger" : (stt==="PULANG"?"text-warning":"text-success");
+                    let extraInfo = "";
+                    
+                    if(stt === "TELAT") {
+                        let limitTelat = (jmMasukStr && jmMasukStr.includes('-')) ? jmMasukStr.split('-')[1] : "00:00";
+                        let selisih = totalMenit - keMenit(limitTelat);
+                        extraInfo = `<div class="mt-1 text-danger small">Telat ${selisih} Menit</div>`;
+                    }
+
+                    Swal.fire({
+                        title: found.nama, text: `${role} - ${found.ket}`,
+                        imageUrl: cekGambar(found.foto), 
+                        imageWidth: 150, imageHeight: 200, 
+                        html: `<h3 class="mt-2 ${popupClass}">${popupTitle}</h3><div class="fs-4 fw-bold">${jamSimpan}</div>${extraInfo}<div class="mt-2 small text-muted">Data Disimpan Lokal (Perlu Sinkron)</div>`,
+                        timer: 2500, showConfirmButton: false
+                    });
+
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Ditutup', text: `Bukan jam presensi ${role} hari ini.`, timer: 2000, showConfirmButton: false });
+                }
+            } else {
+                Swal.fire({ icon: 'error', title: 'Data Tidak Ditemukan', text: `ID: ${id} tidak terdaftar.`, timer: 1500, showConfirmButton: false });
+            }
+        }
+
+        function forceReload() { localStorage.clear(); location.reload(); }
+
+        function updateClock() {
+            let now = new Date();
+            let jam = now.getHours().toString().padStart(2, "0");
+            let menit = now.getMinutes().toString().padStart(2, "0");
+            let detik = now.getSeconds().toString().padStart(2, "0");
+
+            document.getElementById("jamdigital").innerText = `${jam}:${menit}:${detik}`;
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            document.getElementById("date").innerText = now.toLocaleDateString("id-ID", options);
+
+            const monthNames = ["JAN", "FEB", "MAR", "APR", "MEI", "JUN", "JUL", "AGU", "SEP", "OKT", "NOV", "DES"];
+            sessionStorage.setItem('bulanok', monthNames[now.getMonth()]);
+            sessionStorage.setItem('tanggalok', now.getDate());
+
+            checkDailyReset();
+            cekJadwalUmum(jam, menit);
+        }
+
+        function cekJadwalUmum(jam, menit) {
+            const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
+            const todayName = days[new Date().getDay()]; 
+
+            let rawSchedule = localStorage.getItem('presensi_schedule');
+            let schedule = rawSchedule ? JSON.parse(rawSchedule) : [];
+
+            let sSiswa = schedule.find(s => s.hari === todayName && s.tipe === 'SISWA') || {masuk:'-', telat:'-', pulang:'-'};
+            let sGuru = schedule.find(s => s.hari === todayName && s.tipe === 'GURU') || {masuk:'-', telat:'-', pulang:'-'};
+
+            $('#jadwalInfo').html(`
+                <div class="d-flex justify-content-center gap-2 flex-wrap" style="font-size: 0.65rem;">
+                    <span class="badge bg-light text-secondary border">
+                        <i class="fas fa-calendar-day me-1"></i>${todayName}
+                    </span>
+                    <span class="badge bg-light text-secondary border">
+                        <i class="fas fa-user-graduate me-1"></i>Siswa: ${sSiswa.masuk} / ${sSiswa.telat} / ${sSiswa.pulang}
+                    </span>
+                    <span class="badge bg-light text-secondary border">
+                        <i class="fas fa-chalkboard-teacher me-1"></i>Guru: ${sGuru.masuk} / ${sGuru.telat} / ${sGuru.pulang}
+                    </span>
+                </div>
+            `);
+
+            let totalMenit = parseInt(jam) * 60 + parseInt(menit);
+            
+            const checkStatus = (s) => {
+                if (!s || s.masuk === 'LIBUR') return false;
+                let rangeM = s.masuk.includes('-') ? s.masuk.split('-') : [0,0];
+                let rangeT = s.telat.includes('-') ? s.telat.split('-') : [0,0];
+                let rangeP = s.pulang.includes('-') ? s.pulang.split('-') : [0,0];
+                
+                if (totalMenit >= keMenit(rangeM[0]) && totalMenit <= keMenit(rangeM[1])) return "MASUK";
+                if (totalMenit >= keMenit(rangeT[0]) && totalMenit <= keMenit(rangeT[1])) return "TELAT";
+                if (totalMenit >= keMenit(rangeP[0]) && totalMenit <= keMenit(rangeP[1])) return "PULANG";
+                return false;
+            };
+
+            let stSiswa = checkStatus(sSiswa);
+            let stGuru = checkStatus(sGuru);
+
+            let statusEl = document.getElementById("absenStatus");
+            statusEl.className = "status-badge"; 
+            
+            if (stSiswa || stGuru) {
+                statusEl.classList.add('status-aktif');
+                statusEl.innerText = `Siswa: ${stSiswa||'TUTUP'} | Guru: ${stGuru||'TUTUP'}`;
+            } else {
+                statusEl.classList.add('status-tutup');
+                statusEl.innerText = "PRESENSI DITUTUP"; 
+            }
+
+            if (sessionStorage.getItem('tampilTap') === 'Y') {
+                if(currentMode === 'KARTU') $('#containerKartu').show(); else $('#containerQR').show();
+            }
+        }
+
+        function keMenit(str) {
+            if (!str || typeof str !== 'string') return 0;
+            str = str.replace('.', ':').trim();
+            let parts = str.split(':');
+            return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+        }
+
+        function firstLoad() {
+            Swal.fire({ title: 'Memuat...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            $.ajax({
+                url: urlGAS + "?mode=load",
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    Swal.close();
+                    $('#mainCard').fadeIn();
+                    sessionStorage.setItem('tampilTap', 'Y');
+                    
+                    if (response.schedule) {
+                        localStorage.setItem('presensi_schedule', JSON.stringify(response.schedule));
+                    }
+
+                    // Use Device Time directly
+                    setInterval(updateClock, 1000);
+                    updateClock(); // Initial call
+
+                    if (response.setting) {
+                        globalSettings = response.setting; 
+                        if (response.setting.length > 2) {
+                            $('#namaLembaga').text(response.setting[0].Value);
+                            $('#footerSchool').text(response.setting[0].Value);
+                            $('#alamatLembaga').text(response.setting[1].Value);
+                            $('#logo').html(`<img src="${cekGambar(response.setting[2].Value)}" class="logo-img">`);
+                            globalBackground = cekGambar(response.setting[3].Value); 
+                            $('body').css('background-image', `url('${globalBackground}')`);
+                            sessionStorage.setItem('pw', response.setting[4].Value);
+                        }
+                    }
+
+                    dataPersonal = [];
+                    let dList = document.getElementById('datalistPersonal');
+                    dList.innerHTML = '';
+                    let kelasSet = new Set();
+
+                    if (response.personal) {
+                        response.personal.split("#").forEach(item => {
+                            let [id, nama, role, ket, baris, foto] = item.split(";");
+                            dataPersonal.push({ id, nama, role, ket, baris, foto });
+                            let opt = document.createElement('option');
+                            opt.value = id;
+                            opt.innerText = `${nama} (${role})`;
+                            dList.appendChild(opt);
+                            if(ket) kelasSet.add(ket);
+                        });
+                    }
+                    
+                    let selectKelas = document.getElementById('filterKelasCard');
+                    kelasSet.forEach(k => {
+                        let opt = document.createElement('option');
+                        opt.value = k; opt.text = k;
+                        selectKelas.appendChild(opt);
+                    });
+                    
+                    renderIdCardList(); 
+                    loadPresensi(); // Muat data antrean jika ada
+                    fokusInputTap();
+                },
+                error: function(jqXHR, textStatus, errorThrown) { 
+                    Swal.close();
+                    console.error("AJAX Error:", textStatus, errorThrown);
+                    // Pastikan UI tetap muncul meskipun error, agar user bisa melihat menu admin
+                    $('#mainCard').fadeIn(); 
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal Memuat Data',
+                        text: 'Terjadi kesalahan koneksi. Silakan refresh atau cek koneksi internet.',
+                        footer: '<small>Jika ini pertama kali, pastikan deployment Web App sudah benar.</small>'
+                    });
+                }
+            });
+        }
+
+        function cekGambar(url) {
+            if (!url) return 'https://via.placeholder.com/150?text=No+Img';
+            if (typeof url === 'string') {
+                const match = url.match(/\/d\/([a-zA-Z0-9_-]+)|id=([a-zA-Z0-9_-]+)/);
+                if (match) return 'https://lh3.googleusercontent.com/d/' + (match[1] || match[2]);
+            }
+            return url;
+        }
+
+        // --- ADMIN & REKAP LOGIC ---
+        function halPetugas() {
+            Swal.fire({
+                title: 'Password Admin', input: 'password', showCancelButton: true, confirmButtonText: 'Login'
+            }).then((res) => {
+                if (res.isConfirmed && res.value == sessionStorage.getItem('pw')) {
+                    sessionStorage.setItem('tampilTap', 'N');
+                    // Reset modal ke tab pertama (Sync)
+                    var firstTab = new bootstrap.Tab(document.querySelector('#sync-tab'));
+                    firstTab.show();
+                    $('#halPetugas').fadeIn(); 
+                    loadPresensi(); // Reload list antrean saat admin dibuka
+                } else if(res.isConfirmed) Swal.fire('Salah', 'Password salah', 'error');
+            });
+        }
+
+        function aktifkanTapKartu() {
+            $('#halPetugas').fadeOut(); sessionStorage.setItem('tampilTap', 'Y'); gantiMode(currentMode); 
+        }
+
+        // --- FUNGSI SINKRONISASI (DIKEMBALIKAN) ---
+        function loadPresensi() {
+            let list = document.getElementById('dataPresensi');
+            if(!list) return;
+            list.innerHTML = '';
+            let count = 0;
+            // Iterate LocalStorage untuk mencari data antrean
+            for (let i = 0; i < localStorage.length; i++) {
+                let key = localStorage.key(i);
+                // Format Key: BARIS-TGL-BLN-STATUS
+                // Regex sederhana untuk menangkap format ini
+                if (/^\d+-\d{1,2}-[A-Z]{3}-(MASUK|TELAT|PULANG)$/.test(key)) {
+                    count++;
+                    let v = localStorage.getItem(key).split(';');
+                    // v format: baris;tgl;bln;status;jam
+                    let p = dataPersonal.find(x => x.baris == v[0]) || {nama:'?', ket:'?'};
+                    let statusLabel = v[3];
+                    if(statusLabel === 'TELAT') statusLabel = 'TERLAMBAT';
+
+                    let item = `<div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div><strong>${p.nama}</strong><br><small>${p.ket} | ${v[1]} ${v[2]}</small></div>
+                        <div class="text-end"><span class="badge bg-${v[3]=='MASUK'?'success':(v[3]=='TELAT'?'danger':'warning')}">${statusLabel}</span><br><strong>${v[4]}</strong></div>
+                    </div>`;
+                    list.insertAdjacentHTML('beforeend', item);
+                }
+            }
+            if(document.getElementById('banyak')) document.getElementById('banyak').text = `${count} Data`;
+            if($('#banyak').length) $('#banyak').text(`${count} Data`);
+        }
+
+        function bersihkanPresensi() {
+            Swal.fire({ title: 'Hapus Semua?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya' }).then((r) => {
+                if (r.isConfirmed) {
+                    let keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        let k = localStorage.key(i);
+                        if(/^\d+-\d{1,2}-[A-Z]{3}-(MASUK|TELAT|PULANG)$/.test(k)) {
+                            keysToRemove.push(k);
+                        }
+                    }
+                    keysToRemove.forEach(k => localStorage.removeItem(k));
+                    loadPresensi();
+                }
+            });
+        }
+
+        function sinkron() {
+            let data = [], keys = [];
+            for(let i=0; i<localStorage.length; i++) {
+                let k = localStorage.key(i);
+                if(/^\d+-\d{1,2}-[A-Z]{3}-(MASUK|TELAT|PULANG)$/.test(k)) { 
+                    data.push(localStorage.getItem(k)); 
+                    keys.push(k); 
+                }
+            }
+            if(data.length === 0) return Swal.fire('Info', 'Data kosong', 'info');
+
+            Swal.fire({ title: 'Mengirim...', didOpen: () => Swal.showLoading() });
+            $.post(urlGAS, { mode: 'tulispresensi', data: JSON.stringify(data) }).done((res) => {
+                Swal.close();
+                let response = typeof res === 'string' ? JSON.parse(res) : res;
+                if(response.status === 'success') {
+                    keys.forEach(k => localStorage.removeItem(k));
+                    loadPresensi();
+                    Swal.fire('Berhasil', response.message, 'success');
+                } else Swal.fire('Gagal', response.error, 'error');
+            }).fail(() => Swal.fire('Error', 'Gagal koneksi', 'error'));
+        }
+
+        // --- FUNGSI REKAP, EXPORT, ID CARD ---
+        function loadRekapData() {
+            const bulan = $('#filterBulan').val();
+            const role = $('#filterRole').val();
+            Swal.fire({ title: 'Mengambil Data Rekap...', didOpen: () => Swal.showLoading() });
+
+            $.post(urlGAS, { mode: 'rekap', bulan: bulan, role: role }).done(function(response) {
+                Swal.close();
+                if(typeof response === 'string') { try { response = JSON.parse(response); } catch(e){} }
+
+                if (response.status === 'success') {
+                    rekapDataCache = response.data;
+                    renderTableRekap(rekapDataCache);
+                    $('#exportButtons').removeClass('d-none'); 
+                    $('#printHeader').removeClass('d-none');
+                    $('#printBulan').text(bulan + " " + new Date().getFullYear());
+                    
+                    if (globalSettings && globalSettings.length > 2) {
+                        $('#printLogoKiri').attr('src', cekGambar(globalSettings[2].Value));
+                        const h1 = (globalSettings[6] && globalSettings[6].Value) ? globalSettings[6].Value : ""; 
+                        const h2 = (globalSettings[7] && globalSettings[7].Value) ? globalSettings[7].Value : ""; 
+                        const h3 = (globalSettings[8] && globalSettings[8].Value) ? globalSettings[8].Value : ""; 
+                        const h4 = (globalSettings[9] && globalSettings[9].Value) ? globalSettings[9].Value : ""; 
+                        const h5 = (globalSettings[10] && globalSettings[10].Value) ? globalSettings[10].Value : ""; 
+                        const logoKanan = (globalSettings[11] && globalSettings[11].Value) ? globalSettings[11].Value : ""; 
+
+                        if(h1) $('#printHeader1').text(h1).show(); else $('#printHeader1').hide();
+                        if(h2) $('#printHeader2').text(h2).show(); else $('#printHeader2').hide();
+                        if(h3) $('#printHeader3').text(h3).show(); else $('#printHeader3').hide();
+                        if(h4) $('#printHeader4').text(h4).show(); else $('#printHeader4').hide();
+                        if(h5) $('#printHeader5').text(h5).show(); else $('#printHeader5').hide();
+
+                        if(!h1 && !h2 && !h3 && !h4 && !h5) {
+                             $('#printHeader1').text(globalSettings[0].Value).show(); 
+                             $('#printHeader3').text(globalSettings[1].Value).show(); 
+                        }
+
+                        if (logoKanan) {
+                            $('#printLogoKanan').attr('src', cekGambar(logoKanan)).show();
+                        } else {
+                            $('#printLogoKanan').hide();
+                        }
+                    } else {
+                        $('#printLogoKiri').attr('src', $('#logo img').attr('src'));
+                        $('#printHeader1').text($('#namaLembaga').text());
+                        $('#printHeader3').text($('#alamatLembaga').text());
+                    }
+                } else {
+                    Swal.fire('Gagal', response.error || 'Gagal memuat data.', 'error');
+                }
+            }).fail(function() { Swal.close(); Swal.fire('Error', 'Gagal koneksi ke server.', 'error'); });
+        }
+
+        function renderTableRekap(data) {
+            let headerRow = `<tr><th rowspan="2" class="align-middle text-center">No</th><th rowspan="2" class="align-middle text-center">Nama</th><th rowspan="2" class="align-middle text-center">Role</th>`;
+            for(let i=1; i<=31; i++) headerRow += `<th colspan="2" class="text-center d-print-none" style="font-size:0.6rem; min-width:30px;">${i}</th>`;
+            headerRow += `<th colspan="6" class="text-center bg-secondary text-white">Total</th></tr><tr>`;
+            for(let i=1; i<=31; i++) headerRow += `<th class="d-print-none" style="font-size:0.5rem; padding:1px;">M</th><th class="d-print-none" style="font-size:0.5rem; padding:1px;">P</th>`;
+            
+            headerRow += `
+                <th class="text-center" title="Hadir" style="font-size:0.7rem">H</th>
+                <th class="text-center" title="Telat" style="font-size:0.7rem">T</th> 
+                <th class="text-center" title="Pulang" style="font-size:0.7rem">P</th>
+                <th class="text-center" title="Sakit" style="font-size:0.7rem">S</th>
+                <th class="text-center" title="Izin" style="font-size:0.7rem">I</th>
+                <th class="text-center" title="Alfa" style="font-size:0.7rem">A</th>
+            </tr>`;
+
+            let bodyRows = "";
+            const monthMap = { "JAN":0, "FEB":1, "MAR":2, "APR":3, "MEI":4, "JUN":5, "JUL":6, "AGU":7, "SEP":8, "OKT":9, "NOV":10, "DES":11 };
+            const selBulan = $('#filterBulan').val();
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const curMonth = now.getMonth();
+            const selMonthIdx = monthMap[selBulan];
+            
+            let maxDayCheck = 0;
+            if (selMonthIdx < curMonth) maxDayCheck = 31; 
+            else if (selMonthIdx === curMonth) maxDayCheck = now.getDate(); 
+
+            // Load Schedule
+            let rawSchedule = localStorage.getItem('presensi_schedule');
+            let schedule = rawSchedule ? JSON.parse(rawSchedule) : [];
+            const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
+
+            data.forEach(d => {
+                let counts = { h:0, t:0, p:0, s:0, i:0, a:0 }; 
+                
+                let rowHTML = `<tr><td class="text-center">${d.no}</td><td>${d.nama}</td><td class="text-center">${d.role}</td>`;
+                for(let i=1; i<=31; i++) {
+                    let dateObj = new Date(currentYear, selMonthIdx, i);
+                    if (dateObj.getMonth() !== selMonthIdx) {
+                         rowHTML += `<td class="d-print-none bg-light"></td><td class="d-print-none bg-light"></td>`;
+                         continue;
+                    }
+
+                    let dayName = days[dateObj.getDay()];
+                    let rule = schedule.find(s => s.hari === dayName && s.tipe === d.role);
+                    
+                    let limitTelat = 9999; 
+                    if (rule && rule.masuk && rule.masuk !== 'LIBUR') {
+                        let parts = rule.masuk.split('-');
+                        if(parts.length > 1) {
+                            limitTelat = keMenit(parts[1]); 
+                        }
+                    }
+
+                    let isLibur = (!rule || rule.masuk === 'LIBUR');
+
+                    let h = d.presensi[i] || {m:'-', p:'-'};
+                    let valM = (h.m && h.m !== '0') ? h.m.toString().toUpperCase() : '-';
+                    let valP = (h.p && h.p !== '0') ? h.p.toString().toUpperCase() : '-';
+                    let displayM = valM;
+                    
+                    if(valM.includes(':')) { 
+                        counts.h++; 
+                        if (keMenit(valM) > limitTelat) {
+                             displayM = `<span class="text-danger fw-bold" title="Telat">${valM}</span>`;
+                             counts.t++; 
+                        } else {
+                             displayM = `<span class="text-success">${valM}</span>`;
+                        }
+                    }
+                    else if(valM === 'SAKIT') { displayM = `<span class="text-warning">S</span>`; counts.s++; }
+                    else if(valM === 'IZIN') { displayM = `<span class="text-info">I</span>`; counts.i++; }
+                    else if(valM === '-' || valM === '') { 
+                        displayM = '-'; 
+                        if (i <= maxDayCheck && !isLibur) counts.a++; 
+                    }
+                    if (valP.includes(':')) counts.p++;
+                    
+                    rowHTML += `<td class="d-print-none text-center">${displayM}</td><td class="d-print-none text-center">${valP !== '-' ? valP : ''}</td>`;
+                }
+                rowHTML += `<td class="text-center fw-bold">${counts.h}</td><td class="text-center fw-bold text-danger">${counts.t}</td><td class="text-center fw-bold">${counts.p}</td><td class="text-center fw-bold">${counts.s}</td><td class="text-center fw-bold">${counts.i}</td><td class="text-center fw-bold text-danger">${counts.a}</td></tr>`;
+                bodyRows += rowHTML;
+            });
+            $('#tabelRekapData thead').html(headerRow);
+            $('#tabelRekapData tbody').html(bodyRows);
+        }
+
+        function exportToCSV() {
+            let csv = [];
+            let header = ["No", "Nama", "Role"];
+            for(let i=1; i<=31; i++) { header.push(i+"_Masuk"); header.push(i+"_Pulang"); }
+            header.push("Total_Hadir", "Total_Telat", "Total_Pulang", "Total_Sakit", "Total_Izin", "Total_Alfa");
+            csv.push(header.join(","));
+
+            const selBulan = $('#filterBulan').val();
+            const monthMap = { "JAN":0, "FEB":1, "MAR":2, "APR":3, "MEI":4, "JUN":5, "JUL":6, "AGU":7, "SEP":8, "OKT":9, "NOV":10, "DES":11 };
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const curMonth = now.getMonth();
+            const selMonthIdx = monthMap[selBulan];
+            
+            let maxDayCheck = 0;
+            if (selMonthIdx < curMonth) maxDayCheck = 31;
+            else if (selMonthIdx === curMonth) maxDayCheck = now.getDate();
+
+            let rawSchedule = localStorage.getItem('presensi_schedule');
+            let schedule = rawSchedule ? JSON.parse(rawSchedule) : [];
+            const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
+            
+            rekapDataCache.forEach(d => {
+                let r = [d.no, `"${d.nama}"`, d.role];
+                let c = { h:0, t:0, p:0, s:0, i:0, a:0 };
+
+                for(let i=1; i<=31; i++) { 
+                    let dateObj = new Date(currentYear, selMonthIdx, i);
+                    if (dateObj.getMonth() !== selMonthIdx) {
+                        r.push("", ""); continue;
+                    }
+
+                    let dayName = days[dateObj.getDay()];
+                    let rule = schedule.find(s => s.hari === dayName && s.tipe === d.role);
+                    let limitTelat = 9999;
+                    if (rule && rule.masuk && rule.masuk !== 'LIBUR') {
+                        let parts = rule.masuk.split('-');
+                        if(parts.length > 1) limitTelat = keMenit(parts[1]); 
+                    }
+                    let isLibur = (!rule || rule.masuk === 'LIBUR');
+
+                    let h = d.presensi[i] || {m:'-', p:'-'}; 
+                    let valM = (h.m && h.m !== '0') ? h.m.toString().toUpperCase() : '-';
+                    let valP = (h.p && h.p !== '0') ? h.p.toString().toUpperCase() : '-';
+                    r.push(valM, valP); 
+
+                    if (valM.includes(':')) {
+                        c.h++;
+                        if (keMenit(valM) > limitTelat) c.t++;
+                    }
+                    else if (valM === 'SAKIT') c.s++;
+                    else if (valM === 'IZIN') c.i++;
+                    else if (valM === '-' && i <= maxDayCheck && !isLibur) c.a++; 
+
+                    if (valP.includes(':')) c.p++;
+                }
+                r.push(c.h, c.t, c.p, c.s, c.i, c.a);
+                csv.push(r.join(","));
+            });
+
+            let csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+            let downloadLink = document.createElement("a");
+            downloadLink.download = `Rekap_Presensi_${selBulan}.csv`;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+        }
+
+        function exportToPDF() {
+            if (!window.jspdf) {
+                Swal.fire('Error', 'Library PDF belum dimuat. Coba refresh halaman.', 'error');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4');
+            
+            doc.setFontSize(14); 
+            doc.text($('#namaLembaga').text(), 15, 10);
+            doc.setFontSize(10); 
+            doc.text($('#alamatLembaga').text(), 15, 15);
+            doc.setLineWidth(0.5);
+            doc.line(15, 18, 280, 18);
+            doc.setFontSize(12); 
+            doc.text(`Laporan Presensi Bulan: ${$('#filterBulan').val()}`, 15, 25);
+
+            let body = [];
+            
+            if (!rekapDataCache || rekapDataCache.length === 0) {
+                 Swal.fire('Info', 'Tidak ada data untuk diekspor.', 'info');
+                 return;
+            }
+
+            const selBulan = $('#filterBulan').val();
+            const monthMap = { "JAN":0, "FEB":1, "MAR":2, "APR":3, "MEI":4, "JUN":5, "JUL":6, "AGU":7, "SEP":8, "OKT":9, "NOV":10, "DES":11 };
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const curMonth = now.getMonth();
+            const selMonthIdx = monthMap[selBulan];
+            
+            let maxDayCheck = 0;
+            if (selMonthIdx < curMonth) maxDayCheck = 31; 
+            else if (selMonthIdx === curMonth) maxDayCheck = now.getDate(); 
+
+            let rawSchedule = localStorage.getItem('presensi_schedule');
+            let schedule = rawSchedule ? JSON.parse(rawSchedule) : [];
+            const days = ["MINGGU", "SENIN", "SELASA", "RABU", "KAMIS", "JUMAT", "SABTU"];
+
+            rekapDataCache.forEach(d => {
+                let r = [d.no.toString(), d.nama, d.role];
+                let c = { h:0, t:0, p:0, s:0, i:0, a:0 };
+
+                for(let i=1; i<=31; i++) {
+                    let dateObj = new Date(currentYear, selMonthIdx, i);
+                    // Skip invalid dates but keep cell structure aligned if needed by AutoTable? 
+                    // AutoTable handles variable length but for grid consistency better to add empty or skip if header matches days.
+                    // However, standard is 1-31 columns.
+                    let isValidDate = (dateObj.getMonth() === selMonthIdx);
+
+                    let cellText = '';
+
+                    if (isValidDate) {
+                        let dayName = days[dateObj.getDay()];
+                        let rule = schedule.find(s => s.hari === dayName && s.tipe === d.role);
+                        let limitTelat = 9999;
+                        if (rule && rule.masuk && rule.masuk !== 'LIBUR') {
+                            let parts = rule.masuk.split('-');
+                            if(parts.length > 1) limitTelat = keMenit(parts[1]); 
+                        }
+                        let isLibur = (!rule || rule.masuk === 'LIBUR');
+
+                        let h = d.presensi[i] || {m:'-', p:'-'};
+                        let valM = (h.m && h.m !== '0') ? h.m.toString().toUpperCase() : '-';
+                        let valP = (h.p && h.p !== '0') ? h.p.toString().toUpperCase() : '-';
+                        
+                        if(valM.includes(':')) { 
+                            c.h++; 
+                            if (keMenit(valM) > limitTelat) { 
+                                c.t++; 
+                                cellText = 'T'; 
+                            } else {
+                                cellText = 'H'; 
+                            }
+                        }
+                        else if(valM === 'SAKIT') { c.s++; cellText = 'S'; }
+                        else if(valM === 'IZIN') { c.i++; cellText = 'I'; }
+                        else if(valM === '-' || valM === '') { 
+                            if (i <= maxDayCheck && !isLibur) {
+                                c.a++; 
+                                cellText = 'A'; 
+                            }
+                        }
+                        
+                        if (valP.includes(':')) c.p++;
+                    }
+
+                    r.push(cellText);
+                }
+                
+                r.push(c.h.toString(), c.t.toString(), c.p.toString(), c.s.toString(), c.i.toString(), c.a.toString());
+                body.push(r);
+            });
+
+            let head = [['No', 'Nama', 'Role']];
+            for(let i=1; i<=31; i++) head[0].push(i.toString());
+            head[0].push('H', 'T', 'P', 'S', 'I', 'A');
+
+            doc.autoTable({
+                startY: 30, 
+                head: head, 
+                body: body, 
+                theme: 'grid',
+                styles: { 
+                    fontSize: 6, 
+                    cellPadding: 1, 
+                    overflow: 'linebreak',
+                    halign: 'center',
+                    valign: 'middle'
+                },
+                headStyles: { 
+                    fillColor: [67, 97, 238],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold'
+                },
+                columnStyles: { 
+                    0: { cellWidth: 6 }, 
+                    1: { cellWidth: 25, halign: 'left' }, 
+                    2: { cellWidth: 12 }, 
+                }
+            });
+            
+            doc.save(`Rekap_Presensi_${$('#filterBulan').val()}.pdf`);
+        }
+
+        function printRekap() { 
+            document.body.classList.add('printing-rekap');
+            document.body.classList.remove('printing-idcard');
+            setTimeout(() => { window.print(); document.body.classList.remove('printing-rekap'); }, 1000);
+        }
+        
+        function renderIdCardList() {
+            let container = document.getElementById('listIdCard');
+            container.innerHTML = '';
+            let filterKls = document.getElementById('filterKelasCard').value;
+
+            dataPersonal.forEach((p, idx) => {
+                if (filterKls === "SEMUA" || p.ket === filterKls) {
+                    let html = `
+                    <label class="list-group-item">
+                        <input class="form-check-input me-2 chk-card" type="checkbox" value="${p.id}">
+                        ${p.nama} <span class="badge bg-secondary ms-1" style="font-size:0.6rem">${p.ket}</span>
+                    </label>`;
+                    container.insertAdjacentHTML('beforeend', html);
+                }
+            });
+        }
+
+        function toggleAllCards(el) {
+            let checkboxes = document.querySelectorAll('.chk-card');
+            checkboxes.forEach(cb => cb.checked = el.checked);
+        }
+
+        function generateIdCards(doPrint = false) {
+            let checkedIds = Array.from(document.querySelectorAll('.chk-card:checked')).map(cb => cb.value);
+            if (checkedIds.length === 0) {
+                if (doPrint) Swal.fire('Info', 'Pilih minimal satu siswa/guru', 'info');
+                return;
+            }
+
+            let printArea = document.getElementById('printAreaIDCard');
+            printArea.innerHTML = ''; 
+
+            let namaSekolah = $('#namaLembaga').text();
+            let alamatSekolah = $('#alamatLembaga').text();
+            let logoSrc = $('#logo img').attr('src');
+            let bgSelected = $('#bgSelector').val();
+            let bgStyle = `background-image: url('${globalBackground}')`; 
+            if(bgSelected === 'white') bgStyle = 'background: #ffffff; border: 1px solid #ddd;';
+            else if(bgSelected === 'blue') bgStyle = 'background: linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%);';
+            else if(bgSelected === 'peach') bgStyle = 'background: linear-gradient(to right, #ffecd2 0%, #fcb69f 100%);';
+            else if(bgSelected === 'mint') bgStyle = 'background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);';
+            else if(bgSelected === 'lavender') bgStyle = 'background: linear-gradient(to top, #e6e9f0 0%, #eef1f5 100%);';
+
+            let headerHtml = '';
+            let logoKanan = ""; 
+
+            if (globalSettings && globalSettings.length > 10) {
+                 const h1 = (globalSettings[6] && globalSettings[6].Value) ? globalSettings[6].Value : "";
+                 const h2 = (globalSettings[7] && globalSettings[7].Value) ? globalSettings[7].Value : "";
+                 const h3 = (globalSettings[8] && globalSettings[8].Value) ? globalSettings[8].Value : "";
+                 const h4 = (globalSettings[9] && globalSettings[9].Value) ? globalSettings[9].Value : "";
+                 const h5 = (globalSettings[10] && globalSettings[10].Value) ? globalSettings[10].Value : "";
+                 logoKanan = (globalSettings[11] && globalSettings[11].Value) ? globalSettings[11].Value : "";
+
+                 if(h1 || h2 || h3 || h4 || h5) {
+                     if(h1) headerHtml += `<div style="font-size:7px; font-weight:bold; text-transform:uppercase; line-height:1.1;">${h1}</div>`;
+                     if(h2) headerHtml += `<div style="font-size:7px; font-weight:bold; text-transform:uppercase; line-height:1.1;">${h2}</div>`;
+                     if(h3) headerHtml += `<div style="font-size:9px; font-weight:bold; text-transform:uppercase; line-height:1.2; margin:1px 0;">${h3}</div>`;
+                     if(h4) headerHtml += `<div style="font-size:6px; line-height:1;">${h4}</div>`;
+                     if(h5) headerHtml += `<div style="font-size:5px; line-height:1;">${h5}</div>`;
+                 } else {
+                     headerHtml = `<div class="idc-school">${namaSekolah}</div><div class="idc-address">${alamatSekolah.substring(0, 50)}</div>`;
+                 }
+            } else {
+                 headerHtml = `<div class="idc-school">${namaSekolah}</div><div class="idc-address">${alamatSekolah.substring(0, 50)}</div>`;
+            }
+
+            checkedIds.forEach(id => {
+                let p = dataPersonal.find(x => x.id === id);
+                if (p) {
+                    let qrId = `qr-${p.id}`;
+                    let imgKananHtml = logoKanan ? `<img src="${cekGambar(logoKanan)}" class="idc-logo" style="margin-right:0; margin-left:5px;">` : '';
+                    let htmlFront = `
+                    <div class="id-card-wrapper" style="${bgStyle}">
+                        <div class="id-card-overlay"></div>
+                        <div class="id-card-content">
+                            <div class="idc-header" style="justify-content: space-between;">
+                                <img src="${logoSrc}" class="idc-logo">
+                                <div style="text-align: center; flex-grow: 1;">${headerHtml}</div>
+                                ${imgKananHtml}
+                            </div>
+                            <div class="idc-body">
+                                <div class="idc-photo-box"><img src="${cekGambar(p.foto)}" class="idc-photo" onerror="this.src='https://via.placeholder.com/150?text=No+Img'"></div>
+                                <div class="idc-details">
+                                    <div class="idc-name">${p.nama}</div>
+                                    <div class="idc-role">${p.role}</div>
+                                    <div class="idc-id">ID: ${p.id}</div>
+                                    <div class="idc-ket">${p.ket}</div>
+                                </div>
+                            </div>
+                            <div class="idc-qr" id="${qrId}"></div>
+                        </div>
+                    </div>`;
+                    let htmlBack = `
+                    <div class="id-card-wrapper" style="${bgStyle}">
+                        <div class="id-card-overlay"></div>
+                        <div class="id-card-content" style="justify-content: center; align-items: center; text-align: center;">
+                            <img src="${logoSrc}" style="width: 80px; height: 80px; object-fit: contain; margin-bottom: 10px; opacity: 0.9;">
+                            <div style="font-size: 14px; font-weight: bold; text-transform: uppercase; color: #000; line-height: 1.2;">${namaSekolah}</div>
+                            <div style="font-size: 9px; color: #333; margin-top: 5px; width: 90%;">${alamatSekolah}</div>
+                            <div style="margin-top: 15px; border-top: 1px solid #999; width: 60%; padding-top: 5px; font-size: 8px; color: #555;">KARTU TANDA ANGGOTA</div>
+                        </div>
+                    </div>`;
+                    printArea.insertAdjacentHTML('beforeend', htmlFront + htmlBack);
+                    new QRCode(document.getElementById(qrId), { text: p.id, width: 70, height: 70, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.L });
+                }
+            });
+            if (doPrint) {
+                document.body.classList.add('printing-idcard');
+                document.body.classList.remove('printing-rekap');
+                setTimeout(() => { window.print(); document.body.classList.remove('printing-idcard'); }, 1000);
+            }
+        }
+
+    </script>
+</body>
+</html>
